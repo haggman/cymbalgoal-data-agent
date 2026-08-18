@@ -130,6 +130,44 @@ print(json.dumps({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{
 probe_sql "execute_sql_read_only" "SELECT count(*) AS players FROM players;"
 probe_sql "execute_sql"           "SELECT count(*) AS clubs FROM clubs;"
 
+# Schema introspection is what an AGENT actually needs — it cannot write SQL
+# against a schema it has not seen. If the MCP server can serve the catalog,
+# Task 5's agent instruction can stay short; if it cannot, we have to paste the
+# schema into the system prompt, which is a materially different task.
+probe_sql "execute_sql_read_only" \
+  "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name, ordinal_position LIMIT 20;"
+
+# ---------------------------------------------------------------------------
+say "3b. The OTHER tools — which return something useful here?"
+# ---------------------------------------------------------------------------
+# The handoff asks which of the server's tools are useful against the CymbalGoal
+# schema, not just how many exist. The read-only informational ones are the only
+# other candidates worth a student's time; the rest is cluster lifecycle that an
+# agent must never touch. Probing them costs seconds and settles the question.
+probe_simple() {
+  local TOOL="$1" ARGS="$2"
+  local P
+  P="$(python3 -c "
+import json,sys
+print(json.dumps({'jsonrpc':'2.0','id':4,'method':'tools/call',
+ 'params':{'name': sys.argv[1], 'arguments': json.loads(sys.argv[2])}}))
+" "$TOOL" "$ARGS")"
+  local R; R="$(mcp "$P")"
+  echo "  --- ${TOOL} -> HTTP $(tail -1 <<<"$R")"
+  sed '$d' <<<"$R" | unwrap | head -14
+}
+
+PARENT="projects/${PROJECT}/locations/${REGION}"
+probe_simple "list_clusters"  "{\"parent\":\"${PARENT}\"}"
+probe_simple "list_instances" "{\"cluster\":\"${PARENT}/clusters/${CLUSTER}\"}"
+probe_simple "get_instance"   "{\"name\":\"${INST}\"}"
+probe_simple "list_users"     "{\"cluster\":\"${PARENT}/clusters/${CLUSTER}\"}"
+
+echo
+echo "  >>> An argument-name error here is NOT a failure — it means the schema"
+echo "  >>> differs from what we guessed. Read the tools/list output above for"
+echo "  >>> the real argument names and re-probe. Record which ones work."
+
 echo
 echo ">>> Expect 13439 players / 796 clubs IF the Task 0 load has finished."
 echo ">>> A clean connection returning 0 rows means the load is still running —"

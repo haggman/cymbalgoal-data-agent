@@ -20,9 +20,12 @@ export CG_REGION=us-central1 CG_CLUSTER=cymbalgoal-cluster CG_INSTANCE=cymbalgoa
 ## Order — and it matters
 
 ```bash
+# ⚠️ START HERE, at the keyboard, BEFORE the shell scripts:
+#    lab2-06-studio-checklist.md   items 1 and 4 are hard blockers
+
 bash lab2-01-data-api.sh    2>&1 | tee ~/lab2-dataapi.log   # ~1 min
 bash lab2-02-mcp-probe.sh   2>&1 | tee ~/lab2-mcp.log       # ~2 min
-bash lab2-03-adk-web.sh     2>&1 | tee ~/lab2-adk.log       # ~4 min + human time
+bash lab2-03-adk-web.sh     2>&1 | tee ~/lab2-adk.log       # ~5 min + human time
 bash lab2-04-antigravity.sh 2>&1 | tee ~/lab2-agy.log       # ~3 min + human time
 psql -X -P pager=off -f lab2-05-ai-functions.sql 2>&1 | tee ~/lab2-ai.log
 ```
@@ -31,7 +34,14 @@ psql -X -P pager=off -f lab2-05-ai-functions.sql 2>&1 | tee ~/lab2-ai.log
 `02` proves the *server* answers us with nothing but curl — so if `03` fails afterwards, the fault
 is unambiguously ADK's. That separation is the whole reason `02` exists.
 
-`05` needs the Task 0 load to have finished.
+`05` needs the Task 0 load to have finished, and is easiest pasted into AlloyDB Studio — plain
+`psql` from Cloud Shell would need authorized networks.
+
+**`lab2-06` is a manual checklist, not a script, and it is not optional.** Tasks 2, 3 and 4 are 48 of
+the lab's ~103 minutes and happen entirely in the console. Nothing in the shell scripts touches them.
+Two of its items are blockers worth knowing on day one: whether AlloyDB Studio accepts an IAM
+sign-in at all (**nothing in this series has ever proven that** — Lab 1 used a notebook throughout),
+and whether the context-set node exists in the Explorer pane.
 
 ## What each answers
 
@@ -41,7 +51,8 @@ is unambiguously ADK's. That separation is the whole reason `02` exists.
 | `02` | 1 | Does Cloud Shell ADC authenticate to the MCP server? What are the tools *actually*? Does `execute_sql_read_only` return CymbalGoal rows? |
 | `03` | 1 | Does `McpToolset` + `StreamableHTTPConnectionParams` work at the pin, and **does `adk web` survive Cloud Shell Web Preview?** |
 | `04` | 1 | Does the Antigravity plugin still install at `v0.7.2`, is `agy` pre-installed, are the prerequisites there? |
-| `05` | 2 | **Do proxy models work on PG 18 with a learnable predicate at `VECTOR(3072)`?** Plus the `ai.*` inventory from `pg_proc` and the Paulinho ambiguity numbers. |
+| `05` | 2 | **Do proxy models work on PG 18 with a learnable predicate at `VECTOR(3072)`?** A/B timing for the 100x claim, the `ai.*` inventory from `pg_proc`, and the Paulinho ambiguity arithmetic. |
+| `06` | 1+2 | **Manual.** Studio IAM sign-in, "Help me code", the context-set create/upload path, Task 4's test path, the Paulinho spread, and the Task 3 / Task 5 timings. |
 
 Every check prints a `VERDICT:` line, same convention as Lab 1's rig, so answers are greppable
 rather than buried.

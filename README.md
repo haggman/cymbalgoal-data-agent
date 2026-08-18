@@ -1,11 +1,12 @@
 # CymbalGoal — Building a Data Agent: QueryData, MCP and Proxy Functions
 
-Companion repository for the CymbalGoal AlloyDB workshop, **Lab 2 of 3**.
+Companion repository for the CymbalGoal AlloyDB workshop.
 
 CymbalGoal is a global football fan and analytics platform, running on 13,439 players and 796 clubs
-drawn from the Big 5 European leagues plus the Champions and Europa Leagues. Lab 1 fixed search. This
-lab is about the next question the business asks: the scouting and analytics teams don't want a
-search box, they want answers — and they don't write SQL.
+drawn from the Big 5 European leagues plus the Champions and Europa Leagues. The scouting and
+analytics teams are drowning in requests, and the requests all have the same shape: a question in
+plain English about data that lives in PostgreSQL. They don't want a search box, they want answers —
+and they don't write SQL.
 
 You'll build a QueryData context set so natural-language questions resolve against a real schema,
 wire the AlloyDB remote MCP server into an ADK agent by hand, and cut the cost of LLM-powered SQL
@@ -66,8 +67,12 @@ Two constraints are not negotiable and will waste your afternoon if you ignore t
 - **PostgreSQL 18, pinned explicitly.** Never the default.
 
 The one thing you cannot copy is the data: the staged corpus lives in a bucket owned by the course.
-Lab 1's repository (`cymbalgoal-intelligent-search`) contains the notebook that generated it, and the
-source dataset is public and CC0.
+The source dataset is public and CC0, and the scouting profiles were generated once, offline, from it
+— roughly 250 words per player and club, written by a Gemini model grounded in Google Search, then
+embedded with `gemini-embedding-001` at 3072 dimensions and staged to Cloud Storage as gzipped CSV.
+
+That "once, offline" is the part worth stealing. Nothing expensive happens at lab time, every run
+gets byte-identical data, and the corpus is a pinned artifact you can point at and reproduce.
 
 ---
 

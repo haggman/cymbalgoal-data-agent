@@ -55,6 +55,27 @@ AGENT_ROOT=~/cymbalgoal-agent
 say() { echo; echo "### $* ###"; }
 verdict() { echo "VERDICT: $*"; }
 
+say "0. Application Default Credentials and quota project"
+# ⚠️ TWO SEPARATE THINGS, AND CLOUD SHELL GIVES YOU ONLY THE FIRST BY DEFAULT.
+#
+# google.auth.default() resolves in Cloud Shell without you doing anything. But
+# calls to geminidataanalytics and the MCP server are billed against a QUOTA
+# PROJECT, and ADC in Cloud Shell frequently has none set — which surfaces as a
+# 403 mentioning "quota project" or "serviceusage.services.use", not as an auth
+# error. The agent code sends x-goog-user-project as a belt-and-braces measure,
+# but set it properly here too.
+gcloud auth application-default print-access-token >/dev/null 2>&1 || {
+  echo "  ADC not present — running application-default login"
+  gcloud auth application-default login
+}
+gcloud auth application-default set-quota-project "$PROJECT" 2>&1 | tail -2 || true
+python3 -c "
+import google.auth
+c,p = google.auth.default()
+print('  ADC project:', p)
+print('  ADC type   :', type(c).__name__)"
+verdict "ADC resolved"
+
 say "1. Install google-adk[mcp]==${ADK_VERSION}"
 python3 -m pip install --quiet --upgrade "google-adk[mcp]==${ADK_VERSION}" || {
   verdict "🔴 pip install failed — everything downstream is blocked"; exit 1; }
@@ -75,6 +96,37 @@ mkdir -p "${AGENT_ROOT}/cymbalgoal_agent"
 cat > "${AGENT_ROOT}/cymbalgoal_agent/__init__.py" <<'PY'
 from . import agent
 PY
+
+# ---------------------------------------------------------------------------
+# ⚠️ THE .env — WITHOUT THIS, TASK 5 FAILS AT THE MODEL CALL, NOT THE MCP CALL
+# ---------------------------------------------------------------------------
+# ADK resolves its LLM backend from environment, and its DEFAULT is Google AI
+# Studio, which wants a GOOGLE_API_KEY. A Qwiklabs student does not have one and
+# must not be asked to make one. Setting GOOGLE_GENAI_USE_VERTEXAI=TRUE points
+# ADK at Vertex in this project instead, where the student's ADC already works
+# and where aiplatform.googleapis.com is already enabled by our Terraform.
+#
+# This is a genuinely nasty failure to debug live, because everything about the
+# MCP wiring is correct and the error talks about API keys — so the natural
+# reaction is to go hunting in the MCP config, which is fine.
+#
+# ADK reads a .env sitting beside the agent package. Note the LOCATION: use the
+# cluster's region. Do NOT use "global" here — that is for Gemini 3.x models,
+# which are global-endpoint only; gemini-2.5-flash is regional and mixing the
+# two produces a 404 that reads like a permissions problem (D-20).
+cat > "${AGENT_ROOT}/.env" <<ENV
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=${PROJECT}
+GOOGLE_CLOUD_LOCATION=${REGION}
+ENV
+echo "  wrote ${AGENT_ROOT}/.env"
+cat "${AGENT_ROOT}/.env" | sed 's/^/    /'
+
+echo
+echo "  --- is the agent's model actually served in ${REGION}? ---"
+# Cheap, and it removes the second-most-likely cause of a dead Task 5.
+gcloud ai models list --region="${REGION}" --format="value(name)" 2>/dev/null | head -3 \
+  || echo "    (models list unavailable — not fatal, the smoke test below is the real check)"
 
 cat > "${AGENT_ROOT}/cymbalgoal_agent/agent.py" <<PY
 import os
@@ -168,6 +220,27 @@ async def main():
         print("  VERDICT: 🔴 toolset FAILED —", type(e).__name__, e)
 asyncio.run(main())
 PY
+
+say "3b. END-TO-END smoke test WITHOUT the web UI (adk run)"
+# ⚠️ THIS IS THE STEP THAT PROVES TASK 5 IS POSSIBLE. Step 3 proved the toolset
+# resolves; it did NOT prove the model can be reached or that the agent can
+# actually complete a tool call. Those are different failures with different
+# fixes, and if we only ever test through `adk web` we cannot tell them apart
+# from a blank browser tab.
+#
+# It doubles as Task 5's PLAN B. If adk web turns out to be unusable through
+# Web Preview at event scale, `adk run` in the terminal still teaches the whole
+# lesson — you lose the visual trace pane, not the agent.
+echo "  asking the agent a question that REQUIRES a tool call..."
+timeout 180 bash -c "echo 'How many players are in the database? Use your SQL tool.' \
+  | adk run '${AGENT_ROOT}/cymbalgoal_agent' 2>&1" | tail -30 || \
+  echo "  (adk run returned non-zero or timed out — read the output above)"
+echo
+echo "  >>> Want: a number near 13,439 and evidence of an execute_sql_read_only call."
+echo "  >>> 'API key' or 'GOOGLE_API_KEY' in the error  -> the .env is not being read."
+echo "  >>> 404 on the model                            -> wrong LOCATION for this model."
+echo "  >>> 403 on alloydb                              -> Data API or IAM, not ADK."
+verdict "record whichever of the three above you got"
 
 say "4. Launch adk web with the flags Cloud Shell requires"
 echo

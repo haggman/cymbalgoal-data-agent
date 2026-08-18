@@ -102,26 +102,70 @@ FROM google_ml.model_info_view ORDER BY model_type, model_id;
 -- second embedding column. THAT WOULD BE A TERRAFORM AND TASK-0 CHANGE, so it
 -- needs to be known now, not during the build session.
 
-\echo '--- 4a. baseline: the LLM path, timed, on a small slice ---'
-\timing on
-SELECT count(*) FROM (
-  SELECT player_id FROM players
-  WHERE profile_text IS NOT NULL
-  LIMIT 200
-) s;
+-- ⚠️ 4a WAS THE WEAKEST STEP IN THIS FILE AND IS NOW THE MOST IMPORTANT ONE.
+-- An earlier draft "baselined" with a plain count(*), which never calls an LLM
+-- at all and therefore measures nothing. Task 6's entire story is a cost and
+-- speed claim, and a claim needs two numbers measured the same way.
+--
+-- So: the SAME predicate, over the SAME rows, twice.
+--   LLM path   -> ai.if(prompt)                       one model call per row
+--   proxy path -> ai.if(prompt, profile_embedding)    one model, then local
+--
+-- ⚠️ KEEP N SMALL FOR THE LLM PATH. At one model call per row this is real
+-- money and real minutes; 50 rows is enough to get a per-row rate, and the
+-- per-row rate is what extrapolates. Do NOT casually raise this to 13,439 "to
+-- be thorough" — that is a bill, not a measurement.
 
-\echo '--- 4b. the learnable predicate, proxy form ---'
+\echo '--- 4a. LLM PATH baseline: ai.if() with NO embedding, 50 rows, timed ---'
+\timing on
+CREATE TEMP TABLE _bench AS
+  SELECT player_id, name, profile_text, profile_embedding
+  FROM players
+  WHERE profile_text IS NOT NULL AND profile_embedding IS NOT NULL
+  ORDER BY player_id
+  LIMIT 50;
+
+SELECT count(*) AS llm_path_true
+FROM _bench b
+WHERE ai.if('Is this player a goalkeeper? Profile: ' || b.profile_text);
+
+\echo '>>> RECORD THAT DURATION. Divide by 50 for the per-row LLM rate — that is'
+\echo '>>> the number the 100x claim is measured against. Google claims >100x cost'
+\echo '>>> and 30x-100x latency; we quote OUR measurement, not theirs (S-37).'
+
+\echo '--- 4b. the learnable predicate, proxy form, SAME 50 rows ---'
 PREPARE gk_proxy AS
-SELECT p.player_id, p.name
+SELECT count(*)
 FROM players p
 WHERE ai.if('Is this player a goalkeeper? Profile: ' || p.profile_text,
-            p.profile_embedding)
-LIMIT 25;
+            p.profile_embedding);
 
 \echo '>>> PREPARE returning cleanly does NOT mean training succeeded — it is'
 \echo '>>> asynchronous. The verdict is what EXECUTE does next, ON THIS CONNECTION.'
 
 EXECUTE gk_proxy;
+
+\echo '--- 4b-ii. run it AGAIN — the second run is the one that matters ---'
+-- The first EXECUTE may still be paying for training. A proxy model that is
+-- genuinely working gets dramatically faster on the second call over the same
+-- prepared statement; one that has silently fallen back to the LLM does not.
+-- That difference IS the demonstration, and it is worth a step in Task 6.
+EXECUTE gk_proxy;
+
+\echo '--- 4b-iii. accuracy sanity check against a column we can trust ---'
+-- ⚠️ A proxy model that returns "yes" for everything is fast, wrong, and looks
+-- exactly like success in a timing test. players.main_position (or whatever the
+-- schema calls it) is ground truth, so we can actually score the thing.
+-- Adjust the column name if the schema differs — check with \d players.
+SELECT main_position, count(*) AS n
+FROM players
+WHERE profile_text IS NOT NULL
+GROUP BY main_position ORDER BY n DESC;
+
+\echo '>>> Compare the goalkeeper count above against what 4b returned. If the'
+\echo '>>> proxy says 13,000 players are goalkeepers, the feature "worked" and'
+\echo '>>> the answer is garbage — which is a MUCH more interesting teaching'
+\echo '>>> moment than a clean success, and Task 6 should probably keep it.'
 
 \echo '>>> WATCH FOR THIS WARNING:'
 \echo '>>>   "Reduced performance expected. Optimized AI function is not available"'

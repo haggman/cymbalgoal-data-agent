@@ -95,20 +95,62 @@ if command -v uv >/dev/null 2>&1; then uv --version | sed 's/^/    /'
 else echo "    ⚠️ uv NOT present — Task 3's evaluate/gap-analysis phases need it. Add an install step."; fi
 
 echo
-echo "  --- IAM: verify the role names rather than trusting them ---"
-# Every one of these is a name that, if wrong in Terraform, fails the apply for
-# the entire room at once. Cheap to check, expensive to guess.
-for R in roles/geminidataanalytics.queryDataUser \
-         roles/alloydb.databaseUser \
-         roles/serviceusage.serviceUsageConsumer \
-         roles/aiplatform.user \
-         roles/discoveryengine.viewer; do
-  if gcloud iam roles describe "$R" --format="value(name)" >/dev/null 2>&1; then
-    echo "    ✅ $R"
-  else
-    echo "    🔴 $R  DOES NOT EXIST — remove it from main.tf before any Start Lab run"
+echo "  --- IAM: does each role CONTAIN the permission we need? ---"
+# ⚠️ EXISTENCE IS NOT THE QUESTION. This is Lab 1's most expensive lesson,
+# repeated verbatim: roles/discoveryengine.user EXISTS, looks obviously correct,
+# and does NOT contain discoveryengine.rankingConfigs.rank. The room found out
+# at the final step of the lab, with a 403.
+#
+# So check the role/permission PAIR, not the role name. A missing role name
+# fails the Terraform apply loudly; a role that exists but lacks the permission
+# fails silently at provision time and loudly 70 minutes into the lab.
+check_role_perm() {
+  local ROLE="$1" PERM="$2"
+  local OUT
+  if ! OUT="$(gcloud iam roles describe "$ROLE" --format='value(includedPermissions)' 2>&1)"; then
+    echo "    🔴 ${ROLE}  DOES NOT EXIST — remove it from main.tf before any Start Lab run"
+    return
   fi
-done
+  if grep -q -- "$PERM" <<<"$OUT"; then
+    echo "    ✅ ${ROLE}"
+    echo "         contains ${PERM}"
+  else
+    echo "    🔴 ${ROLE}"
+    echo "         MISSING ${PERM}  <- this is the discoveryengine.user mistake again"
+  fi
+}
+
+# Student-facing roles, granted at project level by Terraform.
+check_role_perm roles/geminidataanalytics.queryDataUser  geminidataanalytics.locations.queryData
+check_role_perm roles/alloydb.databaseUser               alloydb.instances.executeSql
+check_role_perm roles/alloydb.databaseUser               alloydb.instances.executeSqlReadOnly
+check_role_perm roles/serviceusage.serviceUsageConsumer  serviceusage.services.use
+
+# Service-agent roles, carried over from Lab 1.
+check_role_perm roles/aiplatform.user                    aiplatform.endpoints.predict
+check_role_perm roles/discoveryengine.viewer             discoveryengine.rankingConfigs.rank
+
+echo
+echo "  --- the one Google documents as a permission and never as a role ---"
+# mcp.tools.call is named in the MCP docs with no role attached. If no predefined
+# role carries it, Task 5 needs a custom role or a broader grant, and that is a
+# Terraform change. This sweep is the only way to find out.
+gcloud iam list-testable-permissions \
+  "//cloudresourcemanager.googleapis.com/projects/$(gcloud config get-value project)" \
+  --filter="name:mcp." --format="value(name)" 2>/dev/null | sed 's/^/    /' \
+  || echo "    (sweep unavailable)"
+echo "    >>> empty output means mcp.tools.call is not a project-level testable"
+echo "    >>> permission — record that, it changes how Task 5's IAM is explained."
+
+echo
+echo "  --- do the grants actually LAND on this account? ---"
+# Terraform grants to user:<student email>. Verifying the binding exists is
+# different from verifying the role is right, and both can be wrong separately.
+ME="$(gcloud config get-value account)"
+gcloud projects get-iam-policy "$(gcloud config get-value project)" \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:${ME}" \
+  --format="value(bindings.role)" 2>/dev/null | sort | sed 's/^/    /'
 
 say "6. Hand over to the agentic part — and START A TIMER"
 cat <<'EOF'
