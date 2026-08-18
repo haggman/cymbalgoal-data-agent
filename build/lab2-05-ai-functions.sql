@@ -119,7 +119,7 @@ FROM google_ml.model_info_view ORDER BY model_type, model_id;
 \echo '--- 4a. LLM PATH baseline: ai.if() with NO embedding, 50 rows, timed ---'
 \timing on
 CREATE TEMP TABLE _bench AS
-  SELECT player_id, name, profile_text, profile_embedding
+  SELECT player_id, player_name, profile_text, profile_embedding
   FROM players
   WHERE profile_text IS NOT NULL AND profile_embedding IS NOT NULL
   ORDER BY player_id
@@ -177,7 +177,7 @@ GROUP BY main_position ORDER BY n DESC;
 \echo '--- 4c. the UNLEARNABLE predicate, as a deliberate contrast ---'
 \echo '--- (this is also a candidate teaching moment: show the honest limit) ---'
 PREPARE underrated_proxy AS
-SELECT p.player_id, p.name
+SELECT p.player_id, p.player_name
 FROM players p
 WHERE ai.if('Is this player underrated relative to their market value? Profile: ' || p.profile_text,
             p.profile_embedding)
@@ -219,11 +219,11 @@ FROM players WHERE profile_text IS NOT NULL LIMIT 1;
 -- goals has Paulinho scored?" untrustworthy no matter what SQL comes back.
 -- These numbers are BM25-style deterministic facts about the corpus, so unlike
 -- anything vector-derived they are safe to print in lab prose.
-SELECT count(*) AS paulinho_rows FROM players WHERE name ILIKE '%Paulinho%';
-SELECT player_id, name, last_season FROM players WHERE name ILIKE '%Paulinho%' ORDER BY player_id;
+SELECT count(*) AS paulinho_rows FROM players WHERE player_name = 'Paulinho';
+SELECT player_id, player_name, last_season FROM players WHERE player_name = 'Paulinho' ORDER BY player_id;
 
 SELECT count(*) AS duplicated_names, sum(c) AS rows_involved FROM (
-  SELECT name, count(*) AS c FROM players GROUP BY name HAVING count(*) > 1
+  SELECT player_name, count(*) AS c FROM players GROUP BY player_name HAVING count(*) > 1
 ) d;
 \echo '>>> Expect 937 duplicated names across 2,261 rows (P-30). If these differ,'
 \echo '>>> the corpus moved and Task 2 needs its numbers re-derived.'
