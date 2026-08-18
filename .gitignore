@@ -1,0 +1,24 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Local build artifacts — never commit a cluster password or a connection env
+*.log
+cymbalgoal-conn.env
+manifest.json
+
+# Antigravity context-engineering plugin working directory.
+# The agent writes tools.yaml here, and tools.yaml carries the database
+# connection it was told to use. Never commit it.
+autoctx/
+eval_reports/
+
+# Python / notebook noise
+.ipynb_checkpoints/
+__pycache__/
+.venv/
+.DS_Store

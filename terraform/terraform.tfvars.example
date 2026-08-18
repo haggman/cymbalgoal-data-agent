@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars for a MANUAL apply in your own project.
+#
+# ⚠️ THE RULE THAT MAKES MANUAL TESTING HONEST, from Lab 1's measured Start Lab run:
+#
+#   This file may contain ONLY gcp_project_id, gcp_region and gcp_zone.
+#
+# Those are the three — and the only three — variables the Qwiklabs runtime passes
+# on its own. Measured, from an actual Start Lab log:
+#
+#   terraform apply -var gcp_project_id=... -var gcp_zone=... -var gcp_region=... -auto-approve
+#
+# If you have to add a fourth variable here to make the apply succeed, you have not
+# fixed anything — you have papered over a Start Lab failure that will hit every
+# student in the room simultaneously. Fix it in qwiklabs.yaml's custom_properties
+# block instead.
+#
+# `username` is deliberately absent below for exactly that reason. It reaches the
+# real runtime only through custom_properties. Uncomment it ONLY for a personal
+# manual apply, and remember that doing so is the thing that hid two separate bugs
+# in Lab 1's dev version of this file.
+
+gcp_project_id = "your-project-id"
+gcp_region     = "us-central1" # us-central1 or us-east1 ONLY — QueryData context sets
+gcp_zone       = "us-central1-a"
+
+# username = "your-name" # local part only, no domain, for manual apply outside Qwiklabs
