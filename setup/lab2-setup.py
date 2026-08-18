@@ -125,9 +125,19 @@ def enable_data_api(uri, project):
     Studio works with no PATCH at all. This PATCH is what opens executeSql to
     OUR callers. So Task 4 may work without it and Task 5 will not.
 
-    Version order is deliberate: v1 first. Google documents v1alpha, but a
-    shipping lab pinned to an alpha endpoint has an expiry date on it, and the
-    field is present in the v1 discovery document.
+    ✅ MEASURED 2026-08-18 on a live cluster, and the version order paid off:
+       /v1/ PATCH -> HTTP 200. We do NOT need the v1alpha endpoint Google
+       documents, so nothing here is pinned to an alpha surface.
+       ALLOW_DATA_API -> HTTP 400 INVALID_ARGUMENT, naming the field and the
+       rejected value. The docs prose is confirmed a bug.
+       dataApiAccess is ABSENT from instances.get before any PATCH — the
+       implicit default is NOT echoed back — so "is the Data API on?" is only
+       answerable after someone has set it explicitly.
+
+    ⚠️ THE OPERATION TOOK 134 SECONDS. That is why this function no longer
+    blocks: two and a quarter minutes is a third of the student's Task 0 wait,
+    spent on a setting nothing needs until Task 5, roughly seventy minutes
+    later. Fire it, get on with the load, and confirm at the end.
     """
     token = sh("gcloud auth print-access-token")
     body = json.dumps({"dataApiAccess": "ENABLED"}).encode()
@@ -142,27 +152,9 @@ def enable_data_api(uri, project):
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 op = json.loads(r.read() or b"{}").get("name", "")
-            log(f"  Data API PATCH accepted on /{ver}/")
-            if op:
-                # instances.patch returns a long-running operation. Poll it, but
-                # do NOT make the whole load fail if polling times out — the
-                # setting almost certainly landed and Task 5 is 70 minutes away.
-                start = time.time()
-                for _ in range(60):
-                    g = urllib.request.Request(
-                        f"https://alloydb.googleapis.com/{ver}/{op}",
-                        headers={"Authorization": f"Bearer {token}"})
-                    with urllib.request.urlopen(g, timeout=30) as r:
-                        d = json.loads(r.read() or b"{}")
-                    if d.get("done"):
-                        if d.get("error"):
-                            log(f"  ⚠️ operation finished WITH ERROR: {d['error']}")
-                        else:
-                            log(f"  Data API enabled in {time.time()-start:.0f}s")
-                        return ver
-                    time.sleep(5)
-                log("  ⚠️ operation still running after 5 min — continuing anyway")
-            return ver
+            log(f"  Data API PATCH accepted on /{ver}/ — not waiting (~134s, "
+                f"and nothing needs it until Task 5)")
+            return ver, op
         except urllib.error.HTTPError as e:
             log(f"  /{ver}/ -> HTTP {e.code}: {e.read()[:200].decode(errors='replace')}")
         except Exception as e:                                    # noqa: BLE001
@@ -173,7 +165,36 @@ def enable_data_api(uri, project):
     log("  🔴 Data API PATCH FAILED ON ALL VERSIONS.")
     log("     The data will still load and Tasks 1-4 will work.")
     log("     TASK 5 (MCP) WILL NOT. Needs alloydb.instances.update.")
-    return None
+    return None, None
+
+
+def confirm_data_api(uri, ver, op):
+    """Check the fire-and-forget PATCH landed. Called at the END of the load.
+
+    By the time we get here the load has taken minutes, so the operation is
+    almost certainly long done and this is a single cheap GET. Never fatal —
+    the data is loaded either way, and a student who sees this warning still
+    has a working lab for everything up to Task 5.
+    """
+    if not ver:
+        return
+    token = sh("gcloud auth print-access-token")
+    try:
+        g = urllib.request.Request(f"https://alloydb.googleapis.com/{ver}/{uri}",
+                                   headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(g, timeout=30) as r:
+            state = json.loads(r.read() or b"{}").get("dataApiAccess", "<ABSENT>")
+    except Exception as e:                                         # noqa: BLE001
+        log(f"  could not confirm Data API: {e}")
+        return
+    if state == "ENABLED":
+        log("  Data API: ENABLED")
+    else:
+        # ABSENT means the PATCH has not landed yet — measured, instances.get
+        # does not echo the implicit default.
+        log(f"  ⚠️ Data API reads '{state}', not ENABLED.")
+        log("     Give it a couple of minutes; the PATCH takes ~134s. If it is")
+        log("     still not ENABLED by Task 5, re-run this script.")
 
 
 # ---------------------------------------------------------------------------
@@ -300,8 +321,10 @@ def main():
     t_start = time.time()
     project, user, region, cluster, instance, uri = discover()
 
+    # Fired first and NOT waited on: the PATCH takes ~134s (measured) and
+    # nothing needs it until Task 5. It settles while the load runs.
     log("### Data API ###")
-    enable_data_api(uri, project)
+    api_ver, api_op = enable_data_api(uri, project)
     log()
 
     connect, session = make_session(uri, user)
@@ -433,6 +456,9 @@ def main():
                     SELECT (SELECT count(*) FROM players),
                            (SELECT count(*) FROM clubs),
                            (SELECT count(*) FROM appearances)""")
+
+    log("\n### Data API confirmation ###")
+    confirm_data_api(uri, api_ver, api_op)
 
     log("\n" + "=" * 62)
     log(f" SETUP COMPLETE in {time.time()-t_start:.0f}s")

@@ -45,15 +45,26 @@ output "mcp_instance_path" {
 # rather than reconstructed from memory — and so the correct enum is recorded
 # in the provisioning log itself.
 #
-# ⚠️ "ENABLED", not ALLOW_DATA_API. The latter appears only in Google's prose,
-# contradicted by the curl block on the same page. See main.tf.
+# ⚠️ BOTH DETAILS BELOW ARE MEASURED, 2026-08-18, not copied from the docs:
+#
+#   /v1/ WORKS. Google documents v1alpha; we do not need it, and a shipping lab
+#   pinned to an alpha endpoint has an expiry date on it. Verified HTTP 200.
+#
+#   "ENABLED" is the only accepted spelling. ALLOW_DATA_API — which Google's
+#   prose names, directly above a curl block that sends ENABLED — returns:
+#     HTTP 400 INVALID_ARGUMENT
+#     "Invalid value at 'instance.data_api_access' (...Instance.DataApiAccess),
+#      \"ALLOW_DATA_API\""
+#
+# ⚠️ It returns a long-running operation that takes ~134 SECONDS. Anyone running
+# this by hand needs to be told that, or they will conclude it hung.
 output "data_api_patch_command" {
-  description = "Manual fallback if the Task 0 setup script did not run. Requires alloydb.instances.update."
+  description = "Manual fallback if the Task 0 setup script did not run. Requires alloydb.instances.update. Takes ~134s to settle."
   value       = <<-EOT
     curl -sS -X PATCH \
       -H "Authorization: Bearer $(gcloud auth print-access-token)" \
       -H "Content-Type: application/json" \
-      "https://alloydb.googleapis.com/v1alpha/${local.instance_path}?updateMask=dataApiAccess" \
+      "https://alloydb.googleapis.com/v1/${local.instance_path}?updateMask=dataApiAccess" \
       -d '{"dataApiAccess":"ENABLED"}'
   EOT
 }
