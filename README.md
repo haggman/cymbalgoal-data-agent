@@ -12,9 +12,13 @@ You'll build a QueryData context set so natural-language questions resolve again
 wire the AlloyDB remote MCP server into an ADK agent by hand, and cut the cost of LLM-powered SQL
 with AlloyDB's cost-optimized AI functions.
 
-You do **not** need this repository to complete the lab — everything is provisioned for you when you
-click **Start Lab**. This repo exists so you can take the work home: re-run the setup in your own
-project, inspect the infrastructure that was built for you, and keep the agent.
+**You clone this repository during the lab.** Task 0 runs `setup/lab2-setup.sh` from it, which
+creates the `cymbalgoal` database and loads the corpus. Everything else is provisioned for you when
+you click **Start Lab** — the AlloyDB cluster, the IAM, and the database flags — so that is the only
+step you run yourself.
+
+The repo is also yours to take home: re-run the setup in your own project, inspect the infrastructure
+that was built for you, and keep the agent.
 
 ```bash
 git clone https://github.com/haggman/cymbalgoal-data-agent.git
@@ -26,9 +30,19 @@ git clone https://github.com/haggman/cymbalgoal-data-agent.git
 
 | Folder | What it is | Do you need it during the lab? |
 | :-- | :-- | :-- |
+| `setup/` | The Task 0 loader — creates the database and loads the corpus | **Yes.** This is the one thing you run. |
 | `agents/` | The ADK agent you build in Task 5 | Reference. You write it yourself during the lab. |
 | `terraform/` | The infrastructure that provisions your lab cluster | No. Runs automatically at Start Lab. |
 | `build/` | Internal build and verification scripts | **No. Not student-facing.** |
+
+### `setup/`
+
+`lab2-setup.sh` installs one client library and then backgrounds `lab2-setup.py`, which creates the
+`cymbalgoal` database, enables five extensions, applies the schema, loads roughly 1.6 million rows
+across eight tables plus the profile and embedding columns, builds the ScaNN indexes, and switches on
+the instance's Data API. It takes about three minutes and returns your prompt immediately, so the
+load runs while you read the next task. Every step is guarded by an existence check, so it is safe to
+re-run.
 
 ### `agents/`
 
