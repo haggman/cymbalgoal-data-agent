@@ -107,6 +107,24 @@ def notices(show=True):
     return out
 
 
+# ⚠️ THE ACTUAL WARNING TEXT, MEASURED 2026-08-19 — it is NOT what the docs say.
+#   docs:     "Reduced performance expected. Optimized AI function is not available"
+#   reality:  "Cost Optimized AI Function is unavailable. Expect reduced performance."
+# Different word order, different capitalisation. An exact-substring matcher built
+# from the docs silently reports "no fallback" while the warning is right there in
+# the output — which is exactly what happened on the first run. Match loosely.
+def _fell_back(notice_lines):
+    for n in notice_lines:
+        low = n.lower()
+        if "cost optimized ai function" in low and "unavailable" in low:
+            return True
+        if "optimized ai function" in low and ("not available" in low or "unavailable" in low):
+            return True
+        if "reduced performance" in low:
+            return True
+    return False
+
+
 def run(sql, show_notices=False):
     cur = CONN.cursor()
     cur.execute(sql)
@@ -266,8 +284,7 @@ def main():
                 rows, dt, ns = q("EXECUTE gk_proxy", f"EXECUTE #{i}",
                                  show_notices=True, timeit=True)
                 val = rows[0][0] if rows else None
-                fell_back = any("Optimized AI function is not available" in n
-                                or "Reduced performance" in n for n in ns)
+                fell_back = _fell_back(ns)
                 verdict(f"EXECUTE #{i}: {dt:.1f}s, {val} true"
                         + ("  🔴 FELL BACK TO LLM" if fell_back else ""))
                 if i == 2 and llm_dt and not fell_back:
@@ -313,8 +330,7 @@ def main():
                              'Profile: ' || b.profile_text, b.profile_embedding)""",
             show_notices=True)
         rows, dt, ns = q("EXECUTE underrated", "underrated", show_notices=True, timeit=True)
-        fell_back = any("Optimized AI function is not available" in n
-                        or "Reduced performance" in n for n in ns)
+        fell_back = _fell_back(ns)
         verdict(f"underrated: {dt:.1f}s, {rows[0][0] if rows else '?'} true"
                 + ("  <- fell back, AS EXPECTED and as designed" if fell_back else
                    "  <- did NOT fall back; the contrast is weaker than hoped"))

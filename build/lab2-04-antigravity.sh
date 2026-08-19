@@ -200,6 +200,43 @@ gcloud projects get-iam-policy "$(gcloud config get-value project)" \
   --filter="bindings.members:${ME}" \
   --format="value(bindings.role)" 2>/dev/null | sort | sed 's/^/    /'
 
+say "5b. MEASURED GOTCHAS — both hit on the first real run, 2026-08-19"
+cat <<'EOF'
+  Run `/mcp` inside agy and you should see THREE servers. Two of the three
+  misbehave on a fresh Cloud Shell, and neither failure is obvious:
+
+  ✗ VertexMcpServer
+      ImportError: cannot import name 'fastmcp' from 'mcp.server'
+    A BUNDLED plugin that ships BROKEN with the Antigravity CLI — its pinned
+    `mcp` package no longer exposes fastmcp. Nothing to do with our plugin and
+    nothing to do with AlloyDB. It runs in its own venv so it breaks nothing
+    else, but every student will see a red ✗ and some will chase it.
+    → Task 3 must either tell them to ignore it or disable it up front:
+        /mcp  ->  select VertexMcpServer  ->  Disable
+
+  ✗ toolbox
+      unable to read config file at "autoctx/tools.yaml": no such file
+    NOT a bug. The agent ASKS YOU TO CONFIRM the working directory before it
+    writes anything, and toolbox cannot start until autoctx/tools.yaml exists.
+    Running /mcp before answering that prompt produces exactly this error.
+    → ANSWER THE AGENT FIRST, verify with `ls autoctx/`, THEN run /mcp and
+      reconnect toolbox.
+    → Also note the path is RELATIVE: launch agy from the same directory the
+      agent created autoctx/ in (your home directory), or toolbox will not
+      find it even when it exists.
+
+  ✓ db-context-engineering
+      Tools: generate_dataset, generate_evalbench_configs, generate_upload_url,
+             mutate_context_set, read_evaluation_result
+
+    ⚠️ LOOK AT THOSE LAST TWO. `generate_upload_url` and `mutate_context_set`
+    suggest the plugin CAN publish a context set itself — which would contradict
+    P-52's "there is no CLI publish command" and would change Task 3's ending
+    from a console upload back to something the agent does. WORTH TESTING
+    DIRECTLY: ask the agent to publish the context set and see whether it uses
+    those tools or tells you to go to the console.
+EOF
+
 say "6. Hand over to the agentic part — and START A TIMER"
 cat <<'EOF'
   Run `agy` and drive it with these prompts, in order. This is Task 3's real
