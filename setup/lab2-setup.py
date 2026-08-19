@@ -351,7 +351,33 @@ def main():
     # --- extensions ---------------------------------------------------------
     # Needs alloydbsuperuser, which Terraform grants the student's IAM user.
     log("\n### Extensions ###")
-    for ext in ("vector", "alloydb_scann", "google_ml_integration", "pg_textsearch"):
+    for ext in ("vector", "alloydb_scann", "google_ml_integration", "pg_textsearch",
+                # ⚠️ pg_trgm is NOT optional, and it is not obviously ours.
+                #
+                # The context-engineering agent builds its value searches — the
+                # entity-linking layer that maps "Arsenal" to a real club_name —
+                # as fuzzy TRIGRAM matches. Those need pg_trgm.
+                #
+                # ⚠️ IT IS NOT AN ALLOYDB DEFAULT. Measured 2026-08-19 by OID
+                # ordering on a live cluster — extensions get ascending OIDs, so
+                # creation order is readable off the catalogue:
+                #
+                #   21875  vector          }
+                #   22230  alloydb_scann   }  created by THIS loader
+                #   22263  pg_textsearch   }
+                #   51082  pg_trgm            created MUCH later
+                #
+                # Nothing in provisioning creates it. The context-engineering
+                # agent did, during verification, because it holds
+                # alloydbsuperuser. So a student who never runs that agent — or
+                # runs it differently — would not have it.
+                #
+                # Without this line the failure lands at TASK 4: the student
+                # uploads a context set, asks a question, and the value searches
+                # fail — pointing them at QueryData rather than at a missing
+                # extension. Right cause, wrong location, seventy minutes
+                # downstream. This one line is load-bearing.
+                "pg_trgm"):
         run(session, f"CREATE EXTENSION IF NOT EXISTS {ext}")
     ver = scalar(session,
                  "SELECT extversion FROM pg_extension WHERE extname='google_ml_integration'")
@@ -427,6 +453,23 @@ def main():
     assert n_p == EXPECT["players"], f"expected {EXPECT['players']:,} player profiles, got {n_p:,}"
     assert n_c == EXPECT["clubs"], f"expected {EXPECT['clubs']:,} club profiles, got {n_c:,}"
     log(f"  {n_p:,} player and {n_c:,} club profiles  {time.time()-t0:.1f}s")
+
+    # ⚠️ DROP THE STAGING TABLES. Measured consequence of leaving them, 2026-08-19:
+    # the context-engineering agent inspects the schema and reports
+    #     "Auxiliary / Profiles — _clubs_profiles, _players_profiles, provisioning_status"
+    # as tables it might describe. That is a duplicate copy of profile_text and
+    # profile_embedding sitting next to the real ones, and a context set that
+    # mentions them will happily generate SQL against the staging copy.
+    #
+    # This is worse than untidy. Lab 2 points an LLM at this schema and asks it
+    # to write SQL — shared-conventions §3 says schema naming directly costs
+    # accuracy, and a stray underscore-prefixed twin of your main table is the
+    # most expensive kind of noise you can leave lying around.
+    #
+    # provisioning_status STAYS: Task 1's row-count check reads it.
+    for t in ("_players_profiles", "_clubs_profiles"):
+        run(session, f"DROP TABLE IF EXISTS {t}")
+    log("  dropped staging tables (kept provisioning_status for Task 1)")
 
     # --- indexes ------------------------------------------------------------
     # ⚠️ AFTER both loads, never before (P-16). schema.sql was re-emitted by

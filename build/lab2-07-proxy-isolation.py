@@ -1,4 +1,15 @@
-#!/usr/bin/env python3
+#!/bin/sh
+# ⚠️ POLYGLOT HEADER — this file is valid sh AND valid Python, deliberately.
+#
+# These Python scripts live beside .sh scripts in the same directory, and the
+# muscle memory is `bash <tab>`. Doing that produced a screenful of
+# "command not found" twice. The line below makes `bash x.py`, `sh x.py`,
+# `./x.py` and `python3 x.py` all do the same correct thing.
+#
+# How it works: sh strips the empty quotes and runs `exec python3 "$0" "$@"`,
+# with everything after # a comment. Python reads the whole line as one
+# triple-quoted string expression and ignores it.
+''''exec python3 "$0" "$@" # '''
 """
 CymbalGoal Lab 2 — lab2-07: WHY did the proxy model refuse, and can Task 6 be saved?
 
