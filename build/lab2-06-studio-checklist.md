@@ -197,6 +197,65 @@ The interesting outcomes, in order of usefulness to the lab:
 ⚠️ **Task 4 must be framed as "compare what the context set changed," not "now it's right."** All
 three outcomes above are writable. Only a task that promised correctness would break.
 
+## 6b. 🔴 NEW — the data agent (rung 2). Gating tests for D-34
+
+Added 2026-08-19 after the task restructure. **The three-rung ladder depends on these**, so they
+carry more weight than anything else in Part B. See `cymbalgoal-lab2-task-restructure.md`.
+
+AlloyDB now has an **Agent** tab in the console (the left-nav entry you spotted). It builds **data
+agents** you can chat with in natural language. Two context types exist:
+
+- **Guided** — built in the console, no context set needed
+- **Advanced** — *"reuses the context for the QueryData method"*, i.e. **our context set**
+
+**That quote is the whole reason rung 2 is in the lab.** If Advanced works, Task 3's artifact powers
+two surfaces and the lab is one story. If it does not, rung 2 is a standalone demo and much weaker.
+
+### Test 1 — can a data agent consume the context set?
+
+- [ ] Open the **Agent** tab. What is it actually called in the nav and on the page? → ____________
+- [ ] Create a data agent. Are you offered **Guided** and **Advanced**, in those words? → __________
+- [ ] Choosing **Advanced**, can you point it at the context set built in item 4?
+- [ ] Or does it want its own separate thing — and if so, what?
+
+**Result:** ______________________________________________
+
+**If Advanced is not offered or will not take the context set:** stop and say so. Task 4's second
+beat gets rewritten and the D-34 rationale weakens. Don't work around it silently.
+
+### Test 2 — is the conversation any good on this corpus?
+
+Ask, in this order, in one conversation:
+
+1. *"How many goals has Paulinho scored?"* — the Task 2 question, third surface
+2. *"Which clubs in the Premier League have the most players who joined without a club?"* — exercises
+   the `'Without Club'` value search
+3. A genuine follow-up that relies on turn 1's context, e.g. *"and which of them was most recent?"*
+   — multi-turn is the thing rung 2 has that rung 1 does not
+
+| # | What it answered | Good / wrong / refused |
+| :-- | :-- | :-- |
+| 1 | | |
+| 2 | | |
+| 3 | | |
+
+⚠️ If it answers Paulinho the **same wrong way**, that is still usable — the lesson becomes "context
+sets fix schema and vocabulary, not ambiguity in the question," which is honest and more useful than
+a clean win. Record it either way; do not retry until it looks good.
+
+### Test 3 — does a hand-authored fix move Paulinho?
+
+The keystone of D-35. Add **one** thing to the context set by hand — a template pairing the Paulinho
+question with SQL that returns per-player rows, or a value search over `player_name` — re-upload,
+and re-ask.
+
+- [ ] Did the generated SQL change? → ______________________
+- [ ] Did it disambiguate, ask back, or stay at 54? → ______________________
+
+**This decides what the student hand-authors in Task 3.** If a template moves it, that is the
+artifact. If nothing moves it, retarget to something that does (the `'Without Club'` value search is
+the obvious candidate) and Task 4 keeps its "compare what changed" framing.
+
 ## 7. Timings — handoff deliverable
 
 Fifty-five of the lab's ~103 minutes sit in Tasks 3 and 5, both open-ended AI-tool work whose
@@ -206,11 +265,17 @@ variance is set by the tooling rather than by us.
 | :-- | --: | --: |
 | `terraform apply`, cold project | ~9 min | |
 | `lab2-setup.sh` load | — | **213 s** (344 s measured, less the 131 s PATCH now made async) |
-| **Task 3** — `agy` connect → golden set → context → evaluate → gap analysis | 25 min | |
+| **Task 3** — `agy` connect → golden set → context → evaluate → gap analysis | 20 min | |
+| — ⚠️ **the decision number**: does the loop land under 12 min? | <12 min | |
 | — how many gap-analysis rounds did you allow? | — | |
-| — plus the console create + upload (items 4) | — | |
+| — plus the console create + upload (item 4) | — | |
+| Task 4 beat 1 — the A/B through Test context set | ~7 min | |
+| Task 4 beat 2 — create the data agent and converse (item 6b) | ~13 min | |
 | **Task 5** — ADK install → agent → first successful tool call | 30 min | |
-| Task 4 — context-set test loop | 15 min | |
+
+⚠️ **The Task 3 number is a decision, not just a record.** Per D-35: if the agentic loop lands under
+~12 minutes and the plugin installed on the first form, the agent stays in core. Otherwise it is
+demoted to an optional task and Task 3 becomes "read and extend a provided context set."
 
 For the Terraform number use `time terraform apply` — the deliverable is Lab 2's provisioning
 wall-clock **as a delta against Lab 1's 542 s** in a virgin project.

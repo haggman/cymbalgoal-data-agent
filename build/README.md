@@ -27,15 +27,18 @@ bash lab2-01-data-api.sh    2>&1 | tee ~/lab2-dataapi.log   # ~1 min
 bash lab2-02-mcp-probe.sh   2>&1 | tee ~/lab2-mcp.log       # ~2 min
 bash lab2-03-adk-web.sh     2>&1 | tee ~/lab2-adk.log       # ~5 min + human time
 bash lab2-04-antigravity.sh 2>&1 | tee ~/lab2-agy.log       # ~3 min + human time
-psql -X -P pager=off -f lab2-05-ai-functions.sql 2>&1 | tee ~/lab2-ai.log
+python3 lab2-05-ai-functions.py 2>&1 | tee ~/lab2-ai.log       # ~4 min
 ```
 
 `01` before `02` because the Data API is what lets MCP execute SQL at all. `02` before `03` because
 `02` proves the *server* answers us with nothing but curl — so if `03` fails afterwards, the fault
 is unambiguously ADK's. That separation is the whole reason `02` exists.
 
-`05` needs the Task 0 load to have finished, and is easiest pasted into AlloyDB Studio — plain
-`psql` from Cloud Shell would need authorized networks.
+`05` needs the Task 0 load to have finished. **It is Python, not SQL**, and deliberately so: `psql`
+from Cloud Shell would need authorized networks this lab does not configure, and pasting into Studio
+fails because Studio does not understand psql meta-commands. More importantly, proxy-model fallback
+is reported only as a PostgreSQL NOTICE — pg8000 queues those as dicts with byte keys, so they have
+to be drained and decoded, and that string is the single most important signal the script produces.
 
 **`lab2-06` is a manual checklist, not a script, and it is not optional.** Tasks 2, 3 and 4 are 48 of
 the lab's ~103 minutes and happen entirely in the console. Nothing in the shell scripts touches them.

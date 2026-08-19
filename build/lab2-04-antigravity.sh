@@ -30,6 +30,25 @@
 # Related: Gemini CLI is now DEPRECATED for this workflow in Google's own docs,
 # which retroactively justifies the Antigravity choice in the outline.
 
+# ⚠️ NAME COLLISION — VERIFY THE OWNER, NOT THE NAME.
+#
+# Searching for "context engineering" in the agy plugin world surfaces
+#   github.com/Apoo711/Context-Engineering
+# which is a well-starred (89) community toolkit for SPEC-DRIVEN AI CODING. It
+# is an agy plugin, it is genuinely popular, and it has NOTHING to do with
+# databases, AlloyDB, QueryData or context sets. Installing it would waste
+# Task 3 and would also put an unvetted third-party plugin into a Google lab.
+#
+# The one we want is GOOGLE-OWNED:
+#   github.com/GoogleCloudPlatform/db-context-enrichment
+#
+# Also NOT this one, though it is legitimate and Google-owned:
+#   github.com/gemini-cli-extensions/alloydb
+# That is AlloyDB *agent skills* — admin, access, data, monitor, health,
+# optimize, replication. Useful for exploring a database in natural language,
+# and a strong candidate for LAB 3's ops story, but it does not generate
+# context sets and it is not Task 3's tool.
+
 set -uo pipefail
 
 PLUGIN_REPO="https://github.com/GoogleCloudPlatform/db-context-enrichment"
@@ -68,15 +87,44 @@ say "3. Install the plugin at the pin"
 # Antigravity CLI's plugin reference documents only a local path. It is very
 # likely supported — a Dataplex doc uses a bare GitHub URL too — but this line
 # is precisely why we smoke-test rather than write prose around it.
+# ⚠️ THREE INSTALL FORMS EXIST AND THEY COME FROM DIFFERENT SOURCES.
+#
+#   A. agy plugin install <repo>/tree/<tag>
+#      From Google's AlloyDB / data-agents docs page. This is the one we want,
+#      because it PINS a version. But the Antigravity CLI's own plugin
+#      reference documents only local paths, and the repo README does not
+#      mention agy at all — so this form is documented in exactly one place.
+#
+#   B. the /plugin marketplace commands
+#      Also from Google's docs. No version pin.
+#
+#   C. gemini extensions install <repo>
+#      THE ONLY FORM THE REPO'S OWN README GIVES. Google's AlloyDB docs now
+#      mark the Gemini CLI path DEPRECATED in favour of Antigravity — so the
+#      README is behind the docs, or the agy path is newer and less travelled.
+#      Either way, if A and B both fail, C is known to work and Task 3 can be
+#      written against Gemini CLI with a note.
+#
+# Try them in order and RECORD WHICH ONE WORKED. Task 3's install step is
+# whichever this run proves, not whichever reads best.
 agy plugin uninstall "$PLUGIN_NAME" >/dev/null 2>&1 || true
+INSTALL_FORM=""
 if agy plugin install "${PLUGIN_REPO}/tree/${PLUGIN_TAG}"; then
-  verdict "plugin installed at ${PLUGIN_TAG} via the /tree/<tag> URL form"
+  INSTALL_FORM="A: agy plugin install <repo>/tree/${PLUGIN_TAG}  (PINNED — preferred)"
+elif agy plugin install "${PLUGIN_REPO}"; then
+  INSTALL_FORM="B: agy plugin install <repo>  (UNPINNED — acceptable, note the risk)"
 else
-  verdict "🔴 install FAILED at ${PLUGIN_TAG} — try the marketplace form before concluding the tag is bad:"
-  echo "     /plugin marketplace add ${PLUGIN_REPO}.git"
-  echo "     /plugin install db-context-engineering@db-context-enrichment-marketplace"
+  verdict "🔴 both agy install forms FAILED."
+  echo "     Try inside an agy session:"
+  echo "       /plugin marketplace add ${PLUGIN_REPO}.git"
+  echo "       /plugin install db-context-engineering@db-context-enrichment-marketplace"
+  echo "     Or fall back to the form the repo README documents:"
+  echo "       gemini extensions install ${PLUGIN_REPO}"
+  echo "     (Gemini CLI is deprecated for this workflow per Google's docs, but"
+  echo "      a deprecated path that works beats a preferred path that does not.)"
   exit 1
 fi
+verdict "INSTALLED via ${INSTALL_FORM}"
 
 say "4. Is it actually enabled?"
 agy plugin list 2>&1 | sed 's/^/  /'
