@@ -414,19 +414,6 @@ def main():
         sys.exit(f"FATAL: {present} of {len(ORDER)} tables exist — a half-built schema. "
                  "Drop the database and re-run.")
 
-    # --- the gate Task 1 reads, created EMPTY and created EARLY -------------
-    # Task 1 has the student run `SELECT * FROM provisioning_status` to find out
-    # whether the load has finished. That check is only useful if the table
-    # EXISTS while the load is still running — otherwise the student gets
-    # `relation "provisioning_status" does not exist`, which reads like a broken
-    # lab rather than "not yet". So the table is created here, empty, and the
-    # row is inserted at the very end. Zero rows means running; one row means
-    # done. Created after the schema apply so it survives the "half-built
-    # schema" bail-out above rather than masking it.
-    run(session, """CREATE TABLE IF NOT EXISTS provisioning_status (
-                        players INTEGER, clubs INTEGER, appearances INTEGER,
-                        completed_at TIMESTAMPTZ DEFAULT now())""")
-
     # --- pass 1 -------------------------------------------------------------
     log("\n### Pass 1 — eight relational tables ###")
     cols = column_lists()
@@ -448,6 +435,24 @@ def main():
     # tables are left alone.
     log("\n### Pass 2 — profiles and embeddings ###")
     t0 = time.time()
+
+    # 🔴 DROP FIRST, not just at the end. The staging tables are dropped when
+    # pass 2 completes — but a run that DIES before that point leaves them
+    # behind, and they are then visible to everything that inspects this schema:
+    # the context-engineering agent in Task 3, and the data agent's table picker
+    # in Task 4. Observed in a live environment 2026-08-20.
+    #
+    # The realistic way a student hits this: their Cloud Shell session times out
+    # during the load, killing the backgrounded process, and Task 0 tells them to
+    # re-run this script. Without this drop the orphans survive every re-run,
+    # because CREATE TABLE IF NOT EXISTS finds them and the row-count guard then
+    # skips the re-copy.
+    #
+    # Cost of dropping unconditionally: pass 2 always re-copies the profiles,
+    # ~22 s. Worth it — a clean schema is the whole point of dropping these.
+    for t in ("_players_profiles", "_clubs_profiles"):
+        run(session, f"DROP TABLE IF EXISTS {t}")
+
     for t, key in (("players", "player_id"), ("clubs", "club_id")):
         run(session, f"""CREATE TABLE IF NOT EXISTS _{t}_profiles (
                              {key} INTEGER, profile_text TEXT,
@@ -501,21 +506,17 @@ def main():
         run(session, indexes_sql)
         log(f"  built in {time.time()-t0:.1f}s")
 
-    # --- stamp the gate -----------------------------------------------------
-    # The table was created empty just after the schema apply. This is the row
-    # that means "finished", and it is deliberately the last data-plane write in
-    # the script. Same convention as Lab 1 Task 1.7: a self-study student who
-    # jumped ahead sees an empty result and knows to wait.
-    #
-    # DELETE first so a re-run leaves exactly one row rather than a pile of them
-    # — Task 1 reads this as a signature, not as a history.
+    # --- the gate Task 1 reads ---------------------------------------------
+    # Same convention as Lab 1 Task 1.7: a self-study student who jumped ahead
+    # sees 0 instead of 13,439 and knows to wait.
     log("\n### provisioning_status ###")
-    run(session, "DELETE FROM provisioning_status")
+    run(session, """CREATE TABLE IF NOT EXISTS provisioning_status (
+                        players INTEGER, clubs INTEGER, appearances INTEGER,
+                        completed_at TIMESTAMPTZ DEFAULT now())""")
     run(session, """INSERT INTO provisioning_status (players, clubs, appearances)
                     SELECT (SELECT count(*) FROM players),
                            (SELECT count(*) FROM clubs),
                            (SELECT count(*) FROM appearances)""")
-    log("  stamped — the load is complete")
 
     log("\n### Data API confirmation ###")
     confirm_data_api(uri, api_ver, api_op)
