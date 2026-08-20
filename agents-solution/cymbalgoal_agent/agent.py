@@ -100,9 +100,23 @@ _credentials.refresh(_request)
 # AlloyDB runs a hosted MCP server. There is nothing to deploy and no endpoint
 # to stand up; you authenticate to it with the identity you already have.
 #
-# The server publishes seventeen tools. Fifteen of them manage cluster
-# lifecycle — including deletion. The default when you wire an agent to a tool
-# server is *everything*, and nothing warns you.
+# The server publishes seventeen tools. Measured from tools/list:
+#
+#   create_backup    create_cluster   create_instance   create_user
+#   execute_sql      execute_sql_read_only              export_data
+#   get_cluster      get_instance     get_operation     get_user
+#   import_data      list_clusters    list_instances    list_users
+#   restore_cluster  update_instance
+#
+# Exactly two of them run SQL, and they sit next to each other: execute_sql
+# will run any statement you can write, including DROP. The default when you
+# wire an agent to a tool server is *everything*, and nothing warns you.
+#
+# Note what is NOT in that list: nothing describes the schema. No list_tables,
+# no describe_table, no way to fetch a column comment. That is why the
+# instruction below sends the agent to information_schema and to
+# obj_description / col_description -- in PostgreSQL the catalog is just more
+# tables, so one SQL tool is enough to both query a database and describe one.
 alloydb_tools = McpToolset(
     connection_params=StreamableHTTPConnectionParams(
         url="https://alloydb.googleapis.com/mcp",
@@ -118,11 +132,11 @@ alloydb_tools = McpToolset(
     # ------------------------------------------------------------------------
     # THE LINE THAT MATTERS.
     #
-    # Seventeen tools go in, one comes out. The sixteen that are gone include
-    # every way this agent had of changing or destroying anything. There is no
-    # instruction telling it not to delete the cluster, and there does not need
-    # to be: the capability is absent. A tool the agent does not have is not a
-    # tool it can be talked into using.
+    # Seventeen tools go in, one comes out. Among the sixteen that are gone is
+    # execute_sql -- every way this agent had of changing anything, in a name
+    # one word from the one we keep. There is no instruction telling it not to
+    # drop a table, and there does not need to be: the capability is absent. A
+    # tool the agent does not have is not a tool it can be talked into using.
     #
     # `tool_filter` belongs HERE, on McpToolset. It looks equally at home on
     # StreamableHTTPConnectionParams above — and that object accepts the keyword
@@ -161,6 +175,14 @@ Use the execute_sql_read_only tool with:
 Write standard PostgreSQL. Put a LIMIT on exploratory queries.
 Ground every claim in a query result. If you did not read it from this
 database, do not say it.
+
+You have no tool that describes the schema, so find it yourself: the
+catalog is queryable with the same tool. Before writing a query against
+tables you have not already inspected, list them and their columns from
+information_schema.columns where table_schema = 'public'. Then read the
+documentation the authors left in the database itself - obj_description
+for tables and col_description for columns - and treat what it says as
+binding. It carries meaning the column names do not.
 
 Player names in this database are NOT unique: 134 names are shared by more
 than one player, across 289 rows. If a name is ambiguous, say so and show
