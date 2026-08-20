@@ -25,5 +25,5 @@ __pycache__/
 
 # Task 5 writes the student's own agent into agents/. The folder stays in git
 # (via .gitkeep); what gets built inside it does not.
-# (adk create writes .env inside the package, covered by the line below)
+agents/.env
 agents/cymbalgoal_agent/

@@ -4,13 +4,22 @@ This is the agent built by hand in Task 5 of the CymbalGoal AlloyDB workshop,
 with the commentary left in. It is functionally identical to what you end up
 with in the lab; nothing here is a shortcut you were not shown.
 
-Layout ADK expects:
+The lab scaffolds this folder with `adk create`, which writes four files:
 
     agents/                      <- the directory you point `adk web` at
-      .env                       <- read from HERE, beside the package
       cymbalgoal_agent/          <- one agent
-        __init__.py              <- must contain: from . import agent
-        agent.py                 <- must define: root_agent
+        __init__.py              <- from . import agent
+        agent.py                 <- must define: root_agent  (this file)
+        .env                     <- GOOGLE_GENAI_USE_VERTEXAI, project, region
+        .gitignore
+
+Scaffold it yourself with:
+
+    cd ~/cymbalgoal-data-agent/agents
+    adk create --model gemini-3.7-flash --region global cymbalgoal_agent
+
+Answer Vertex AI at the backend prompt; accept the project and region defaults.
+Then drop this file over the placeholder agent.py it generated.
 
 ADK discovers agents by scanning the parent directory for Python packages,
 importing each one, and looking for a module-level variable named `root_agent`.
@@ -46,13 +55,23 @@ _request = Request()
 
 # --- where the database is ----------------------------------------------------
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT") or _default_project
-REGION = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 DATABASE = "cymbalgoal"
+
+# Deliberately NOT os.environ["GOOGLE_CLOUD_LOCATION"].
+#
+# There are two regions in play and one variable name that sounds like it
+# covers both. GOOGLE_CLOUD_LOCATION is "global" because gemini-3.7-flash is
+# served only from the global endpoint. The AlloyDB cluster is in a real
+# region, on real hardware, in a real place. Read the environment variable
+# here and INSTANCE_PATH becomes locations/global/clusters/... -- a resource
+# that does not exist -- while the model, the credentials and the tool wiring
+# all remain perfectly correct.
+ALLOYDB_REGION = "us-central1"
 
 # The MCP tools address the instance by its full resource path, not by a
 # connection string. Nothing about this is a secret; it is a name.
 INSTANCE_PATH = (
-    f"projects/{PROJECT_ID}/locations/{REGION}"
+    f"projects/{PROJECT_ID}/locations/{ALLOYDB_REGION}"
     f"/clusters/cymbalgoal-cluster/instances/cymbalgoal-primary"
 )
 
@@ -131,7 +150,7 @@ alloydb_tools = McpToolset(
 # because that tool returns a finished natural-language answer and the whole
 # point of this rung is being able to see the rows the answer was built from.
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.7-flash",
     name="cymbalgoal_agent",
     instruction=f"""You answer questions about CymbalGoal's football database.
 

@@ -51,15 +51,16 @@ Your working directory for Task 5. You point `adk web` at this folder and build 
 
 ```
 agents/
-├── .env                      you write this in Task 5.3
-└── cymbalgoal_agent/         you write this in Task 5.3
+└── cymbalgoal_agent/         `adk create` scaffolds this in Task 5.3
     ├── __init__.py
-    └── agent.py
+    ├── agent.py              you replace the generated placeholder
+    ├── .env
+    └── .gitignore
 ```
 
 ADK discovers agents by scanning a directory for Python packages, importing each one, and looking for
 a variable called `root_agent`. So `agents/` is the folder you point ADK at, and `cymbalgoal_agent/`
-inside it is one agent. Both of those files are gitignored, so your work never fights with `git pull`.
+inside it is one agent. That whole folder is gitignored, so your work never fights with `git pull`.
 
 Task 5 has you wire `McpToolset` to `https://alloydb.googleapis.com/mcp` yourself rather than handing
 you a finished agent, because the interesting part is the wiring: which tools you expose, how the

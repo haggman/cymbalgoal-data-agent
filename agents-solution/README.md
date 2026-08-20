@@ -1,39 +1,42 @@
 # `agents-solution/` — the finished agent
 
-This mirrors the folder you build in Task 5, so you can drop it straight into place.
+The agent you build in Task 5, finished, with the commentary left in. Every decision that a
+completed file hides — why the credential is a callable and not a dict, why the timeout is sixty
+seconds, why `tool_filter` goes on the toolset and not on the connection params, and why the AlloyDB
+region is hard-coded instead of read from `GOOGLE_CLOUD_LOCATION` — is written next to the line it
+explains.
 
 ```
 agents-solution/
-├── .env.example              -> becomes agents/.env
-└── cymbalgoal_agent/         -> becomes agents/cymbalgoal_agent/
+├── .env.example              only needed if you are rebuilding outside the lab
+└── cymbalgoal_agent/
     ├── __init__.py
-    └── agent.py
+    └── agent.py              the interesting file
 ```
-
-The code is functionally identical to what you write during the lab. The only difference is
-commentary: every decision that is invisible in a finished file — why the credential is a function,
-why the timeout is sixty seconds, why `tool_filter` goes on the toolset and not on the connection
-params — is written down next to the line it explains.
 
 ## If you want to run this copy instead of your own
 
-From the repository root:
+During the lab, `adk create` has already generated your `__init__.py` and a `.env` carrying your own
+project. Keep both — you only need `agent.py`:
 
 ```bash
-cd agents
-cp -r ../agents-solution/cymbalgoal_agent .
-sed "s|YOUR_PROJECT_ID|$(gcloud config get-value project)|" ../agents-solution/.env.example > .env
+cd ~/cymbalgoal-data-agent/agents
+cp ../agents-solution/cymbalgoal_agent/agent.py cymbalgoal_agent/
 adk web --allow_origins="*" --host 0.0.0.0 --port 8080 .
 ```
 
-That overwrites whatever is in `agents/cymbalgoal_agent/`, so move your own version aside first if
-you want to keep it.
+That replaces only the one file, so nothing you configured is lost. Move your own `agent.py` aside
+first if you want to keep it.
 
-Requires:
+## Rebuilding this from scratch, outside the lab
 
 ```bash
 pip install --quiet --upgrade "google-adk[mcp]==2.7.1"
 export PATH="$HOME/.local/bin:$PATH"
+
+mkdir -p agents && cd agents
+adk create --model gemini-3.7-flash --region global cymbalgoal_agent
+cp ../agents-solution/cymbalgoal_agent/agent.py cymbalgoal_agent/
 ```
 
 The `[mcp]` extra is not optional — a plain `google-adk` installs an `mcp_tool` package that swallows
@@ -41,8 +44,13 @@ its own missing dependency and exports nothing. The version is pinned because th
 specific `McpToolset` behavior.
 
 The `export` matters as much as the install. pip puts the `adk` script in `~/.local/bin` and warns
-that the directory is not on your PATH; it is telling the truth, and without that line `adk web`
-comes back `command not found`, which reads like a failed install rather than a misplaced one.
+that the directory is not on your PATH; it is telling the truth, and without that line `adk` comes
+back `command not found`, which reads like a failed install rather than a misplaced one.
+
+At the `adk create` prompts, answer **Vertex AI** for the backend and accept the project and region
+defaults. If you would rather write the `.env` by hand, `.env.example` shows what it needs — but note
+that `GOOGLE_CLOUD_LOCATION` there is the **model's** endpoint, not your database's region. The two
+are different, and `agent.py` keeps them apart on purpose.
 
 ## Why you type it in the lab instead of cloning it
 
