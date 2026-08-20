@@ -27,26 +27,31 @@ python3 -m pip install --quiet --upgrade \
 # ---------------------------------------------------------------------------
 # Antigravity CLI first-run settings.
 #
-# Task 3 runs `agy`. Left to itself, first launch puts the student through an
-# interactive sign-in: pick an auth type, open an authorization URL in a browser
-# tab, copy an auth code back into the terminal, enter the project, enter a
-# location, then a colour-scheme and Terms-of-Service wizard. That is ~2-3
-# minutes per person and the single most likely place for a large room to
-# fragment.
+# 🔴 MEASURED 2026-08-19: this does NOT skip the sign-in flow. Seeding
+# `selectedAuthType: "cloud-shell"` — lifted from GSP1348's resources/settings.json,
+# where it is present but never actually written by that lab — had no effect. `agy`
+# still ran its full interactive sequence: login method, sign-in method, browser
+# OAuth round-trip, project ID, location, licence. Task 3 documents that sequence
+# rather than pretending it away.
 #
-# `selectedAuthType: cloud-shell` tells the CLI to use Cloud Shell's ambient
-# credentials instead of asking. Sourced from GSP1348's resources/settings.json.
+# So the wrong value is no longer written. Only the nudge suppressor stays, which
+# is harmless either way.
 #
-# ⚠️ MERGE, never overwrite. An instructor re-running this script mid-lab may
-# already have authenticated by hand, and clobbering their settings would undo
-# it. Written to BOTH paths because the CLI still reads the legacy ~/.gemini
-# location, and GSP1348 keeps the two in sync for the same reason.
+# ⚠️ TO FINISH THIS: after signing in successfully once, run
+#     cat ~/.antigravity/settings.json
+# The CLI writes its own auth type, project and location there, in whatever enum it
+# actually uses. Seed THOSE exact values here and re-test on a clean project —
+# `rm -f ~/.antigravity/settings.json ~/.gemini/settings.json` first, or the merge
+# below will preserve what is already there and prove nothing.
+#
+# MERGE, never overwrite: an instructor re-running this mid-lab may already have
+# authenticated by hand. Both paths are written because the CLI still reads the
+# legacy ~/.gemini location.
 echo "Configuring the Antigravity CLI..."
 python3 - <<'PYEOF'
 import json, os
 
 WANT = {
-    "selectedAuthType": "cloud-shell",
     "hasSeenIdeIntegrationNudge": True,
 }
 
