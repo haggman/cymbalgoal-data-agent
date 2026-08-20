@@ -31,7 +31,8 @@ git clone https://github.com/haggman/cymbalgoal-data-agent.git
 | Folder | What it is | Do you need it during the lab? |
 | :-- | :-- | :-- |
 | `setup/` | The Task 0 loader — creates the database and loads the corpus | **Yes.** This is the one thing you run. |
-| `agents/` | The ADK agent you build in Task 5 | Reference. You write it yourself during the lab. |
+| `agents/` | Where you build the ADK agent in Task 5 | **Yes.** This is your working directory for Task 5. |
+| `agents-solution/` | A finished, heavily commented copy of that agent | Only if you get stuck, or want it afterwards. |
 | `terraform/` | The infrastructure that provisions your lab cluster | No. Runs automatically at Start Lab. |
 | `build/` | Internal build and verification scripts | **No. Not student-facing.** |
 
@@ -46,10 +47,30 @@ re-run.
 
 ### `agents/`
 
+Your working directory for Task 5. You point `adk web` at this folder and build the agent inside it:
+
+```
+agents/
+├── .env                      you write this in Task 5.3
+└── cymbalgoal_agent/         you write this in Task 5.3
+    ├── __init__.py
+    └── agent.py
+```
+
+ADK discovers agents by scanning a directory for Python packages, importing each one, and looking for
+a variable called `root_agent`. So `agents/` is the folder you point ADK at, and `cymbalgoal_agent/`
+inside it is one agent. Both of those files are gitignored, so your work never fights with `git pull`.
+
 Task 5 has you wire `McpToolset` to `https://alloydb.googleapis.com/mcp` yourself rather than handing
 you a finished agent, because the interesting part is the wiring: which tools you expose, how the
-credentials get attached, and what happens when you expose too many. The finished article lands here
-so you have something to lift into your own project afterwards.
+credentials get attached, and what happens when you expose too many. None of that is visible in a
+finished file.
+
+### `agents-solution/`
+
+The same agent, finished, with the commentary left in — every decision that a completed file hides,
+written next to the line it explains. It mirrors `agents/` exactly, so a stuck student can copy one
+folder over their own and keep going. See `agents-solution/README.md` for the two commands.
 
 ### `terraform/`
 

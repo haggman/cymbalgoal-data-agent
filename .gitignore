@@ -22,3 +22,8 @@ eval_reports/
 __pycache__/
 .venv/
 .DS_Store
+
+# Task 5 writes the student's own agent into agents/. The folder stays in git
+# (via .gitkeep); what gets built inside it does not.
+agents/.env
+agents/cymbalgoal_agent/
