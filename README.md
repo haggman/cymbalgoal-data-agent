@@ -9,8 +9,8 @@ plain English about data that lives in PostgreSQL. They don't want a search box,
 and they don't write SQL.
 
 You'll build a QueryData context set so natural-language questions resolve against a real schema,
-wire the AlloyDB remote MCP server into an ADK agent by hand, and cut the cost of LLM-powered SQL
-with AlloyDB's cost-optimized AI functions.
+attach it to an AlloyDB data agent, then wire the AlloyDB remote MCP server into an ADK agent by
+hand — choosing which tools it gets and reading every call it makes.
 
 **You clone this repository during the lab.** Task 0 runs `setup/lab2-setup.sh` from it, which
 creates the `cymbalgoal` database and loads the corpus. Everything else is provisioned for you when
@@ -76,8 +76,8 @@ folder over their own and keep going. See `agents-solution/README.md` for the tw
 ### `terraform/`
 
 The cluster you used was built by this Terraform before you typed a single command — a PostgreSQL 18
-AlloyDB cluster with the AI extensions, the IAM the agent needs, and the database flags that make
-cost-optimized AI functions available.
+AlloyDB cluster with the AI extensions, the IAM the agent needs, and the database flags the AI
+features rely on.
 
 ⚠️ **This is a mirror.** The authoritative copy ships with the lab in the content repo at
 `labs/mkt014-building-a-data-agent/terraform/`. Keep the two in sync; a change made only here never
