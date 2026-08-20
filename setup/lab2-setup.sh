@@ -23,6 +23,52 @@ echo "Installing client libraries..."
 python3 -m pip install --quiet --upgrade \
   "google-cloud-alloydb-connector[pg8000]" 2>&1 | tail -2
 
+
+# ---------------------------------------------------------------------------
+# Antigravity CLI first-run settings.
+#
+# Task 3 runs `agy`. Left to itself, first launch puts the student through an
+# interactive sign-in: pick an auth type, open an authorization URL in a browser
+# tab, copy an auth code back into the terminal, enter the project, enter a
+# location, then a colour-scheme and Terms-of-Service wizard. That is ~2-3
+# minutes per person and the single most likely place for a large room to
+# fragment.
+#
+# `selectedAuthType: cloud-shell` tells the CLI to use Cloud Shell's ambient
+# credentials instead of asking. Sourced from GSP1348's resources/settings.json.
+#
+# ⚠️ MERGE, never overwrite. An instructor re-running this script mid-lab may
+# already have authenticated by hand, and clobbering their settings would undo
+# it. Written to BOTH paths because the CLI still reads the legacy ~/.gemini
+# location, and GSP1348 keeps the two in sync for the same reason.
+echo "Configuring the Antigravity CLI..."
+python3 - <<'PYEOF'
+import json, os
+
+WANT = {
+    "selectedAuthType": "cloud-shell",
+    "hasSeenIdeIntegrationNudge": True,
+}
+
+for d in ("~/.antigravity", "~/.gemini"):
+    d = os.path.expanduser(d)
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, "settings.json")
+    current = {}
+    if os.path.exists(path):
+        try:
+            with open(path) as fh:
+                current = json.load(fh)
+        except (ValueError, OSError):
+            current = {}          # unreadable or not JSON: start clean
+    merged = dict(current)
+    merged.update({k: v for k, v in WANT.items() if k not in current})
+    with open(path, "w") as fh:
+        json.dump(merged, fh, indent=2)
+        fh.write("\n")
+    print(f"  {path}")
+PYEOF
+
 echo
 echo "Starting the CymbalGoal load in the background."
 echo "  log: ${LOG}"

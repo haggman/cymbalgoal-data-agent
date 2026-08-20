@@ -414,6 +414,19 @@ def main():
         sys.exit(f"FATAL: {present} of {len(ORDER)} tables exist — a half-built schema. "
                  "Drop the database and re-run.")
 
+    # --- the gate Task 1 reads, created EMPTY and created EARLY -------------
+    # Task 1 has the student run `SELECT * FROM provisioning_status` to find out
+    # whether the load has finished. That check is only useful if the table
+    # EXISTS while the load is still running — otherwise the student gets
+    # `relation "provisioning_status" does not exist`, which reads like a broken
+    # lab rather than "not yet". So the table is created here, empty, and the
+    # row is inserted at the very end. Zero rows means running; one row means
+    # done. Created after the schema apply so it survives the "half-built
+    # schema" bail-out above rather than masking it.
+    run(session, """CREATE TABLE IF NOT EXISTS provisioning_status (
+                        players INTEGER, clubs INTEGER, appearances INTEGER,
+                        completed_at TIMESTAMPTZ DEFAULT now())""")
+
     # --- pass 1 -------------------------------------------------------------
     log("\n### Pass 1 — eight relational tables ###")
     cols = column_lists()
@@ -488,17 +501,21 @@ def main():
         run(session, indexes_sql)
         log(f"  built in {time.time()-t0:.1f}s")
 
-    # --- the gate Task 1 reads ---------------------------------------------
-    # Same convention as Lab 1 Task 1.7: a self-study student who jumped ahead
-    # sees 0 instead of 13,439 and knows to wait.
+    # --- stamp the gate -----------------------------------------------------
+    # The table was created empty just after the schema apply. This is the row
+    # that means "finished", and it is deliberately the last data-plane write in
+    # the script. Same convention as Lab 1 Task 1.7: a self-study student who
+    # jumped ahead sees an empty result and knows to wait.
+    #
+    # DELETE first so a re-run leaves exactly one row rather than a pile of them
+    # — Task 1 reads this as a signature, not as a history.
     log("\n### provisioning_status ###")
-    run(session, """CREATE TABLE IF NOT EXISTS provisioning_status (
-                        players INTEGER, clubs INTEGER, appearances INTEGER,
-                        completed_at TIMESTAMPTZ DEFAULT now())""")
+    run(session, "DELETE FROM provisioning_status")
     run(session, """INSERT INTO provisioning_status (players, clubs, appearances)
                     SELECT (SELECT count(*) FROM players),
                            (SELECT count(*) FROM clubs),
                            (SELECT count(*) FROM appearances)""")
+    log("  stamped — the load is complete")
 
     log("\n### Data API confirmation ###")
     confirm_data_api(uri, api_ver, api_op)

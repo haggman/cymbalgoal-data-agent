@@ -1,4 +1,4 @@
-# CymbalGoal — Building a Data Agent: QueryData, MCP and Proxy Functions
+# CymbalGoal — AlloyDB AI: From Generated SQL to a Custom ADK Agent
 
 Companion repository for the CymbalGoal AlloyDB workshop.
 
