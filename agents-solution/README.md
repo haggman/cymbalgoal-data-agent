@@ -29,8 +29,20 @@ adk web --allow_origins="*" --host 0.0.0.0 --port 8080 .
 That overwrites whatever is in `agents/cymbalgoal_agent/`, so move your own version aside first if
 you want to keep it.
 
-Requires `pip install "google-adk[mcp]==2.7.1"` — the `[mcp]` extra is not optional, and the version
-is pinned because the agent depends on specific `McpToolset` behavior.
+Requires:
+
+```bash
+pip install --quiet --upgrade "google-adk[mcp]==2.7.1"
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The `[mcp]` extra is not optional — a plain `google-adk` installs an `mcp_tool` package that swallows
+its own missing dependency and exports nothing. The version is pinned because the agent depends on
+specific `McpToolset` behavior.
+
+The `export` matters as much as the install. pip puts the `adk` script in `~/.local/bin` and warns
+that the directory is not on your PATH; it is telling the truth, and without that line `adk web`
+comes back `command not found`, which reads like a failed install rather than a misplaced one.
 
 ## Why you type it in the lab instead of cloning it
 
